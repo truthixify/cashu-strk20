@@ -1,0 +1,16 @@
+[workspace]
+members = ["crates/cdk-starknet"]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.93"
+license = "MIT OR Apache-2.0"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"

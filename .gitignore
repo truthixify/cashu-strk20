@@ -1,0 +1,25 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# JavaScript and TypeScript
+node_modules/
+.pnpm-store/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Rust and Cairo
+target/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+
+# Logs and generated research renders
+*.log
+tmp/

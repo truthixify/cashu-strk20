@@ -1,0 +1,35 @@
+{
+  "name": "cashu-strk20-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cashu payment infrastructure backed by private STRK20 settlement on Starknet",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=10.28 <11"
+  },
+  "scripts": {
+    "build": "pnpm -r --if-present run build",
+    "check": "pnpm check:typescript && pnpm check:rust && pnpm docs:links",
+    "check:rust": "pnpm rust:fmt && pnpm rust:lint && pnpm rust:test",
+    "check:typescript": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "docs:links": "node scripts/check-doc-links.mjs",
+    "format": "biome format --write packages services",
+    "format:check": "biome format packages services",
+    "lint": "biome lint packages services",
+    "precommit": "scripts/check-protected-paths.sh && pnpm check",
+    "rust:fmt": "cargo fmt --all --check",
+    "rust:lint": "cargo clippy --workspace --all-targets --all-features -- -D warnings",
+    "rust:test": "cargo test --workspace --all-targets",
+    "test": "pnpm -r --if-present run test",
+    "typecheck": "pnpm -r --if-present run typecheck"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.11",
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

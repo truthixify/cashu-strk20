@@ -1,0 +1,49 @@
+name: Bug report
+description: Report a reproducible non-security defect
+title: ""
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Do not report vulnerabilities, secrets, Cashu proofs, or private note data here. Follow SECURITY.md.
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+      description: Describe what happened without sensitive data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include minimal testnet-only steps and sanitized inputs.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or source revision
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, Node, Rust, CDK, SDK, network, and contract versions where relevant.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: This report contains no secret, spendable proof, signer, viewing key, or private note data.
+          required: true

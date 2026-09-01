@@ -1,0 +1,11 @@
+[package]
+name = "cdk-starknet"
+description = "CDK payment processor boundary for private STRK20 settlement"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
