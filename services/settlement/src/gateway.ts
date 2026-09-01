@@ -18,20 +18,30 @@ export interface FundingInstructions {
   readonly destination: Readonly<Record<string, unknown>>;
 }
 
-export interface PayoutIntentInput {
-  readonly quoteId: string;
+export interface PayoutPreparationInput {
+  readonly intentId: string;
   readonly request: MeltPaymentEnvelope;
 }
 
-export interface PayoutSubmission {
+export type PayoutAttemptStatus = "PREPARED" | "PENDING" | "UNKNOWN" | "PAID" | "FAILED";
+
+export interface PayoutAttempt {
   readonly intentId: string;
-  readonly status: "PENDING" | "UNKNOWN" | "PAID" | "FAILED";
+  readonly submissionId: string;
+  readonly status: PayoutAttemptStatus;
   readonly transactionReference?: string;
 }
 
 export interface PrivateSettlementGateway {
   createFundingInstructions(input: FundingRequestInput): Promise<FundingInstructions>;
   findFundingPayment(paymentRequestId: string): Promise<PaymentObservation | null>;
-  ensurePayoutIntent(input: PayoutIntentInput): Promise<PayoutSubmission>;
-  getPayoutStatus(intentId: string): Promise<PayoutSubmission>;
+  /** Prepare a uniquely identified transaction attempt without broadcasting it. */
+  preparePayout(input: PayoutPreparationInput): Promise<PayoutAttempt>;
+  /**
+   * Broadcast the prepared attempt. Repeating this call for one submission ID must not create a
+   * different transaction or a second effective payout.
+   */
+  submitPayout(submissionId: string): Promise<PayoutAttempt>;
+  /** `PAID` means canonical finality; `FAILED` means non-execution is proven and recovery is safe. */
+  getPayoutStatus(submissionId: string): Promise<PayoutAttempt>;
 }
