@@ -19,6 +19,9 @@ import {
   type SettlementIntentRecord,
   type SettlementIntentStore,
 } from "./intents.js";
+import type { SettlementSubmissionGate } from "./settlement-activity-gate.js";
+import type { SettlementAdmissionChecker } from "./settlement-admission.js";
+import { SETTLEMENT_METHOD, type SettlementProfile } from "./settlement-pauses.js";
 
 export type PayoutValidationErrorCode =
   | "invalid_quote_id"
@@ -68,6 +71,8 @@ export interface PayoutCoordinatorConfig {
   readonly tokenContract: string;
   readonly minimumAmount: bigint;
   readonly maximumAmount: bigint;
+  readonly admission: SettlementAdmissionChecker;
+  readonly submissionGate: SettlementSubmissionGate;
   readonly now?: () => Date;
   readonly createIntentId?: () => string;
 }
@@ -77,6 +82,9 @@ export class PayoutCoordinator {
   readonly #tokenContract: string;
   readonly #minimumAmount: bigint;
   readonly #maximumAmount: bigint;
+  readonly #admission: SettlementAdmissionChecker;
+  readonly #submissionGate: SettlementSubmissionGate;
+  readonly #profile: SettlementProfile;
   readonly #now: () => Date;
   readonly #createIntentId: () => string;
 
@@ -101,6 +109,27 @@ export class PayoutCoordinator {
     this.#tokenContract = normalizeHexAddress(config.tokenContract, "Configured token contract");
     this.#minimumAmount = config.minimumAmount;
     this.#maximumAmount = config.maximumAmount;
+    if (
+      typeof config.admission !== "object" ||
+      config.admission === null ||
+      typeof config.admission.assertActive !== "function"
+    ) {
+      throw new PayoutConfigurationError("Configured settlement admission checker is invalid");
+    }
+    this.#admission = config.admission;
+    if (
+      typeof config.submissionGate !== "object" ||
+      config.submissionGate === null ||
+      typeof config.submissionGate.runSubmission !== "function"
+    ) {
+      throw new PayoutConfigurationError("Configured settlement submission gate is invalid");
+    }
+    this.#submissionGate = config.submissionGate;
+    this.#profile = {
+      method: SETTLEMENT_METHOD,
+      network: this.#network,
+      tokenContract: this.#tokenContract,
+    };
     this.#now = config.now ?? (() => new Date());
     this.#createIntentId = config.createIntentId ?? randomUUID;
   }
@@ -111,6 +140,7 @@ export class PayoutCoordinator {
     const identity = intentIdentity(input.quoteId, input.request);
     let intent = await this.store.getByQuoteId(input.quoteId);
     if (intent === null) {
+      await this.#assertAdmission();
       this.#assertUnexpired(input.request);
       const intentId = this.#createIntentId();
       assertOpaqueIdentifier(intentId, "Generated intent ID");
@@ -127,11 +157,15 @@ export class PayoutCoordinator {
     }
 
     if (intent.submissionId === undefined) {
+      await this.#assertAdmission();
       const prepared = await this.#prepare(intent, input.request);
       if (prepared === null) {
         return progress(intent);
       }
 
+      if (prepared.status === "PREPARED") {
+        await this.#assertAdmission();
+      }
       const attached = await this.store.attachSubmission(intent.intentId, prepared.submissionId);
       if (attached.submissionId === prepared.submissionId) {
         intent = await this.#acceptAttempt(attached, prepared);
@@ -162,18 +196,40 @@ export class PayoutCoordinator {
       return progress(intent);
     }
 
+    let admitted = false;
+    let submissionEntered = false;
+    let submitted: unknown;
     try {
-      const submitted = await this.gateway.submitPayout(submissionId);
+      await this.#submissionGate.runSubmission(this.#profile, async () => {
+        if (submissionEntered) {
+          throw new GatewayProtocolError(
+            "Settlement submission gate invoked a payout more than once",
+          );
+        }
+        submissionEntered = true;
+        await this.#assertAdmission();
+        admitted = true;
+        submitted = await this.gateway.submitPayout(submissionId);
+      });
+      if (!submissionEntered || submitted === undefined) {
+        throw new GatewayProtocolError(
+          "Settlement submission gate did not complete the payout callback",
+        );
+      }
       this.#assertAttempt(submitted, intent.intentId, submissionId);
       intent = await this.#acceptAttempt(intent, submitted);
     } catch (error) {
-      if (error instanceof GatewayProtocolError) {
+      if (!admitted || error instanceof GatewayProtocolError) {
         throw error;
       }
       intent = await this.#recordUnknown(intent);
     }
 
     return progress(intent);
+  }
+
+  async #assertAdmission(): Promise<void> {
+    await this.#admission.assertActive(this.#profile);
   }
 
   async #prepare(

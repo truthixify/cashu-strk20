@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "cashu-strk20-testnet-deployment-manifest-v1",
+  "network": "SN_SEPOLIA",
+  "chainId": "0x534e5f5345504f4c4941",
+  "contracts": [
+    {
+      "role": "privacy_pool",
+      "address": "0x52a6aa9d50631626d80b8e6acc9a9918ed8879cc24e793832dcb562e22255dd",
+      "classHash": "0x7e2bbd7ccc1e68b2695caef70aeb2a3be6cd017b5d5159278ba08f2d8de33f",
+      "version": "PRIVACY-0.14.3-RC.6",
+      "source": {
+        "repository": "https://github.com/starkware-libs/starknet-privacy",
+        "commit": "4db755b9512f00b540126737b605472ea2275e15",
+        "contractPath": "packages/privacy/src/privacy.cairo"
+      },
+      "deployment": {
+        "transactionReference": "0xaaa",
+        "acceptedBlockHash": "0xabc",
+        "acceptedBlockNumber": "99",
+        "deployer": "0x777",
+        "salt": "0x1",
+        "unique": false,
+        "constructorCalldata": [
+          "0x777",
+          "0x111",
+          "0x222",
+          "0x1c2"
+        ]
+      },
+      "configuration": {
+        "governanceAdmin": "0x777",
+        "auditorPublicKey": "0x111",
+        "screenerPublicKey": "0x222",
+        "proofValidityBlocks": "450"
+      }
+    },
+    {
+      "role": "usdc_token",
+      "address": "0x6a8d4f1ed931cf91bf5a81d0d1f4101f6fe8584d9d857f1226a128cc6529cb6",
+      "classHash": "0x222",
+      "version": "usdc-test-v1",
+      "source": {
+        "repository": "https://github.com/example/test-usdc",
+        "commit": "cccccccccccccccccccccccccccccccccccccccc",
+        "contractPath": "src/TestUsdc.cairo"
+      },
+      "deployment": {
+        "transactionReference": "0xbbb",
+        "acceptedBlockHash": "0xdef",
+        "acceptedBlockNumber": "100",
+        "deployer": "0x777",
+        "salt": "0x2",
+        "unique": true,
+        "constructorCalldata": []
+      },
+      "configuration": {
+        "symbol": "USDC",
+        "decimals": 6,
+        "mintAuthority": "0x778",
+        "supplyPolicy": "capped_test_supply_v1",
+        "maximumSupplyBaseUnits": "1000000000"
+      }
+    }
+  ]
+}

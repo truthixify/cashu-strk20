@@ -8,6 +8,7 @@
   "exports": {
     ".": {
       "types": "./src/index.ts",
+      "cashu-strk20-compiled": "./dist/index.js",
       "import": "./src/index.ts"
     }
   },

@@ -22,6 +22,13 @@ Before applying, produce a reproducible testnet artifact showing:
 - Setup script or exact commands from a clean machine.
 - Network, chain ID, pool, token, SDK, CDK, prover, and indexer versions.
 - Sanitized transaction hashes and block references.
+- Canonical content-hashed pool and token deployment manifests plus the read-only origin-verifier
+  record binding each declared transaction to its deterministic UDC address, exact event, canonical
+  inclusion, configured finality, and historical class through the configured RPC set.
+- A machine-readable verified-run envelope built by the sequential scenario runner through the
+  allowlisted testnet-evidence schema and bound to recent contract and service verification records.
+- The exact canonical envelope bytes accepted by
+  `pnpm --silent testnet:validate-evidence < verified-run.json`.
 - Automated test summary with failure-path counts.
 - End-to-end timing and fee measurements.
 - A two-minute demo recording with no hidden manual state edits.
@@ -30,6 +37,15 @@ Before applying, produce a reproducible testnet artifact showing:
 
 Do not publish viewing keys, bearer proofs, signer material, private note plaintext, registry tokens,
 or credentials in the evidence bundle.
+
+The envelope is a consistency check, not an execution attestation. Before application review, its
+deployment profile must match, its chronology and block-bound checks must pass, and scenario coverage
+must contain every required scenario with no failed or skipped result. Reviewers must still
+authenticate manifest sources, review the disclosed transactions and selected contract authorities,
+establish provider independence, verify the privacy-service deployment, and review the demo.
+Runner state `COMPLETED` is not sufficient, and output from fake or simulated callbacks does not meet
+this gate. Canonical validation catches parser ambiguity and derived-field tampering but does not
+authenticate the artifact or replace independent transaction and deployment review.
 
 ## Proposed grant deliverables
 

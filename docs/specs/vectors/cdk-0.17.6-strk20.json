@@ -1,0 +1,61 @@
+{
+  "name": "cashu-strk20-cdk-custom-wire",
+  "version": 1,
+  "status": "candidate",
+  "cdk": {
+    "crate": "cdk-common",
+    "version": "0.17.6",
+    "crateChecksum": "b67475b79db0e001bfe0843697f177e44be8cd589f48c3f993e76a5317b6fac1",
+    "sourceCommit": "43129596752412ed4b30f8fb8f49ec63650a5f6e",
+    "paymentProcessorProtocol": "3.0.0",
+    "customRequestExtraLimitBytes": 1024,
+    "scope": "outer-cdk-wire-only"
+  },
+  "nut04": {
+    "path": "/v1/mint/quote/strk20",
+    "request": {
+      "amount": 2000,
+      "unit": "usdc",
+      "description": "private USDC funding",
+      "network": "SN_SEPOLIA",
+      "attribution": {
+        "profile": "signed_payer"
+      }
+    },
+    "response": {
+      "quote": "fixture-mint-quote-id",
+      "request": "strk20:eyJ2ZXJzaW9uIjoxLCJraW5kIjoibWludCIsIm5ldHdvcmsiOiJTTl9TRVBPTElBIiwidG9rZW5fY29udHJhY3QiOiIweDQ1NiIsImFtb3VudCI6MjAwMCwiYW1vdW50X2Jhc2VfdW5pdHMiOiIyMDAwMDAwMCIsImV4cGlyZXNfYXQiOjIwMDAwMDAzMDAsImRlc3RpbmF0aW9uIjp7InBvb2xfY29udHJhY3QiOiIweDEyMyIsInJlY2lwaWVudF9hZGRyZXNzIjoiMHg3ODkiLCJub3RlX3JlZmVyZW5jZSI6IjB4MTExIn0sInBheW1lbnRfcmVxdWVzdF9pZCI6InBheW1lbnRfcmVxdWVzdF9maXh0dXJlXzAwMDEiLCJhdHRyaWJ1dGlvbl9wcm9maWxlIjoic2lnbmVkX3BheWVyIn0",
+      "amount": 2000,
+      "amount_paid": 0,
+      "amount_issued": 0,
+      "unit": "usdc",
+      "expiry": 2000000300,
+      "network": "SN_SEPOLIA",
+      "token_contract": "0x456",
+      "amount_base_units": "20000000",
+      "payment_request_id": "payment_request_fixture_0001",
+      "attribution_profile": "signed_payer"
+    }
+  },
+  "nut05": {
+    "path": "/v1/melt/quote/strk20",
+    "request": {
+      "method": "strk20",
+      "request": "strk20:eyJ2ZXJzaW9uIjoxLCJraW5kIjoibWVsdCIsIm5ldHdvcmsiOiJTTl9TRVBPTElBIiwidG9rZW5fY29udHJhY3QiOiIweDQ1NiIsImFtb3VudCI6MjAwMCwiYW1vdW50X2Jhc2VfdW5pdHMiOiIyMDAwMDAwMCIsImV4cGlyZXNfYXQiOjIwMDAwMDAzMDAsImRlc3RpbmF0aW9uIjp7InJlY2lwaWVudF9hZGRyZXNzIjoiMHg3ODkifX0",
+      "unit": "usdc",
+      "network": "SN_SEPOLIA"
+    },
+    "response": {
+      "quote": "fixture-melt-quote-id",
+      "amount": 2000,
+      "fee_reserve": 3,
+      "state": "UNPAID",
+      "expiry": 2000000300,
+      "request": "strk20:eyJ2ZXJzaW9uIjoxLCJraW5kIjoibWVsdCIsIm5ldHdvcmsiOiJTTl9TRVBPTElBIiwidG9rZW5fY29udHJhY3QiOiIweDQ1NiIsImFtb3VudCI6MjAwMCwiYW1vdW50X2Jhc2VfdW5pdHMiOiIyMDAwMDAwMCIsImV4cGlyZXNfYXQiOjIwMDAwMDAzMDAsImRlc3RpbmF0aW9uIjp7InJlY2lwaWVudF9hZGRyZXNzIjoiMHg3ODkifX0",
+      "unit": "usdc",
+      "network": "SN_SEPOLIA",
+      "token_contract": "0x456",
+      "amount_base_units": "20000000"
+    }
+  }
+}

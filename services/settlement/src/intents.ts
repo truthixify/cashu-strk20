@@ -21,6 +21,15 @@ export type SettlementIntentState =
   | "FAILED"
   | "OPERATOR_REQUIRED";
 
+export const SETTLEMENT_INTENT_STATES: readonly SettlementIntentState[] = [
+  "INTENT_RECORDED",
+  "PENDING",
+  "UNKNOWN",
+  "PAID",
+  "FAILED",
+  "OPERATOR_REQUIRED",
+];
+
 export interface SettlementIntentRecord {
   readonly intentId: string;
   readonly identity: SettlementIntentIdentity;
@@ -85,105 +94,59 @@ export function assertSameIntent(
 export class InMemorySettlementIntentStore implements SettlementIntentStore {
   readonly #byIntentId = new Map<string, SettlementIntentRecord>();
   readonly #intentIdByQuoteId = new Map<string, string>();
+  readonly #intentIdBySubmissionId = new Map<string, string>();
 
   async getByQuoteId(quoteId: string): Promise<SettlementIntentRecord | null> {
-    assertIdentifier(quoteId, "Quote ID");
+    assertIntentIdentifier(quoteId, "Quote ID");
     const intentId = this.#intentIdByQuoteId.get(quoteId);
-    return intentId === undefined ? null : cloneRecord(this.#required(intentId));
+    return intentId === undefined ? null : cloneSettlementIntentRecord(this.#required(intentId));
   }
 
   async createOrGet(candidate: SettlementIntentCandidate): Promise<SettlementIntentRecord> {
-    assertIdentifier(candidate.intentId, "Intent ID");
-    assertIdentifier(candidate.identity.quoteId, "Quote ID");
+    assertIntentIdentifier(candidate.intentId, "Intent ID");
+    assertIntentIdentifier(candidate.identity.quoteId, "Quote ID");
 
     const existingIntentId = this.#intentIdByQuoteId.get(candidate.identity.quoteId);
     if (existingIntentId !== undefined) {
       const existing = this.#required(existingIntentId);
       assertSameIntent(existing.identity, candidate.identity);
-      return cloneRecord(existing);
+      return cloneSettlementIntentRecord(existing);
     }
 
     if (this.#byIntentId.has(candidate.intentId)) {
       throw new IntentIntegrityError("Intent ID is already bound to another payout");
     }
 
-    const record: SettlementIntentRecord = {
-      intentId: candidate.intentId,
-      identity: cloneIdentity(candidate.identity),
-      state: "INTENT_RECORDED",
-      transactionReferences: [],
-    };
+    const record = createSettlementIntentRecord(candidate);
 
     this.#byIntentId.set(candidate.intentId, record);
     this.#intentIdByQuoteId.set(candidate.identity.quoteId, candidate.intentId);
-    return cloneRecord(record);
+    return cloneSettlementIntentRecord(record);
   }
 
   async attachSubmission(intentId: string, submissionId: string): Promise<SettlementIntentRecord> {
-    assertIdentifier(submissionId, "Submission ID");
+    assertIntentIdentifier(submissionId, "Submission ID");
     const existing = this.#required(intentId);
-
     if (existing.submissionId !== undefined) {
-      return cloneRecord(existing);
+      return cloneSettlementIntentRecord(existing);
     }
-
-    if (existing.state !== "INTENT_RECORDED") {
-      throw new IntentIntegrityError("Cannot attach a submission after settlement has advanced");
+    const owner = this.#intentIdBySubmissionId.get(submissionId);
+    if (owner !== undefined && owner !== intentId) {
+      throw new IntentIntegrityError("Submission ID is already bound to another payout");
     }
-
-    const updated = { ...existing, submissionId };
+    const updated = attachSettlementSubmission(existing, submissionId);
+    if (updated.submissionId !== undefined) {
+      this.#intentIdBySubmissionId.set(updated.submissionId, intentId);
+    }
     this.#byIntentId.set(intentId, updated);
-    return cloneRecord(updated);
+    return cloneSettlementIntentRecord(updated);
   }
 
   async recordAttempt(attempt: PayoutAttempt): Promise<SettlementIntentRecord> {
     const existing = this.#required(attempt.intentId);
-    if (existing.submissionId !== attempt.submissionId) {
-      throw new IntentIntegrityError("Gateway attempt does not match the recorded submission");
-    }
-
-    const transactionReferences = appendUnique(
-      existing.transactionReferences,
-      attempt.transactionReference,
-    );
-
-    if (attempt.status === "PREPARED") {
-      const updated = { ...existing, transactionReferences };
-      this.#byIntentId.set(existing.intentId, updated);
-      return cloneRecord(updated);
-    }
-
-    if (existing.state === "PAID" || existing.state === "FAILED") {
-      if (
-        (attempt.status === "PAID" || attempt.status === "FAILED") &&
-        existing.state !== attempt.status
-      ) {
-        throw new IntentIntegrityError("Gateway reported conflicting terminal payout states");
-      }
-      const updated = { ...existing, transactionReferences };
-      this.#byIntentId.set(existing.intentId, updated);
-      return cloneRecord(updated);
-    }
-
-    if (existing.state === "OPERATOR_REQUIRED") {
-      return cloneRecord(existing);
-    }
-
-    if (existing.state === attempt.status) {
-      const updated = { ...existing, transactionReferences };
-      this.#byIntentId.set(existing.intentId, updated);
-      return cloneRecord(updated);
-    }
-
-    if (!canTransitionOutgoing(existing.state, attempt.status)) {
-      throw new IntentIntegrityError(
-        `Illegal payout transition from ${existing.state} to ${attempt.status}`,
-      );
-    }
-
-    const updated = { ...existing, state: attempt.status, transactionReferences };
+    const updated = applySettlementAttempt(existing, attempt);
     this.#byIntentId.set(existing.intentId, updated);
-    return cloneRecord(updated);
+    return cloneSettlementIntentRecord(updated);
   }
 
   #required(intentId: string): SettlementIntentRecord {
@@ -195,8 +158,79 @@ export class InMemorySettlementIntentStore implements SettlementIntentStore {
   }
 }
 
-function assertIdentifier(value: string, label: string): void {
-  if (value.trim().length === 0 || value.length > 512) {
+export function createSettlementIntentRecord(
+  candidate: SettlementIntentCandidate,
+): SettlementIntentRecord {
+  assertIntentIdentifier(candidate.intentId, "Intent ID");
+  assertIntentIdentifier(candidate.identity.quoteId, "Quote ID");
+  return {
+    intentId: candidate.intentId,
+    identity: cloneIntentIdentity(candidate.identity),
+    state: "INTENT_RECORDED",
+    transactionReferences: [],
+  };
+}
+
+export function attachSettlementSubmission(
+  existing: SettlementIntentRecord,
+  submissionId: string,
+): SettlementIntentRecord {
+  assertIntentIdentifier(submissionId, "Submission ID");
+  if (existing.submissionId !== undefined) {
+    return existing;
+  }
+  if (existing.state !== "INTENT_RECORDED") {
+    throw new IntentIntegrityError("Cannot attach a submission after settlement has advanced");
+  }
+  return { ...existing, submissionId };
+}
+
+export function applySettlementAttempt(
+  existing: SettlementIntentRecord,
+  attempt: PayoutAttempt,
+): SettlementIntentRecord {
+  assertIntentIdentifier(attempt.intentId, "Gateway intent ID");
+  assertIntentIdentifier(attempt.submissionId, "Gateway submission ID");
+  if (attempt.transactionReference !== undefined) {
+    assertIntentIdentifier(attempt.transactionReference, "Transaction reference");
+  }
+  if (existing.submissionId !== attempt.submissionId) {
+    throw new IntentIntegrityError("Gateway attempt does not match the recorded submission");
+  }
+
+  const transactionReferences = appendUnique(
+    existing.transactionReferences,
+    attempt.transactionReference,
+  );
+
+  if (attempt.status === "PREPARED") {
+    return { ...existing, transactionReferences };
+  }
+  if (existing.state === "PAID" || existing.state === "FAILED") {
+    if (
+      (attempt.status === "PAID" || attempt.status === "FAILED") &&
+      existing.state !== attempt.status
+    ) {
+      throw new IntentIntegrityError("Gateway reported conflicting terminal payout states");
+    }
+    return { ...existing, transactionReferences };
+  }
+  if (existing.state === "OPERATOR_REQUIRED") {
+    return existing;
+  }
+  if (existing.state === attempt.status) {
+    return { ...existing, transactionReferences };
+  }
+  if (!canTransitionOutgoing(existing.state, attempt.status)) {
+    throw new IntentIntegrityError(
+      `Illegal payout transition from ${existing.state} to ${attempt.status}`,
+    );
+  }
+  return { ...existing, state: attempt.status, transactionReferences };
+}
+
+export function assertIntentIdentifier(value: string, label: string): void {
+  if (typeof value !== "string" || value.trim().length === 0 || value.length > 512) {
     throw new IntentIntegrityError(`${label} is invalid`);
   }
 }
@@ -208,17 +242,19 @@ function appendUnique(existing: readonly string[], value: string | undefined): r
   return [...existing, value];
 }
 
-function cloneIdentity(identity: SettlementIntentIdentity): SettlementIntentIdentity {
+function cloneIntentIdentity(identity: SettlementIntentIdentity): SettlementIntentIdentity {
   return {
     ...identity,
     destination: structuredClone(identity.destination),
   };
 }
 
-function cloneRecord(record: SettlementIntentRecord): SettlementIntentRecord {
+export function cloneSettlementIntentRecord(
+  record: SettlementIntentRecord,
+): SettlementIntentRecord {
   return {
     ...record,
-    identity: cloneIdentity(record.identity),
+    identity: cloneIntentIdentity(record.identity),
     transactionReferences: [...record.transactionReferences],
   };
 }

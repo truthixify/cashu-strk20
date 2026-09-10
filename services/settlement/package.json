@@ -9,6 +9,150 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./sqlite-store": {
+      "types": "./src/sqlite-store.ts",
+      "import": "./src/sqlite-store.ts"
+    },
+    "./sqlite-prepared-payout-store": {
+      "types": "./src/sqlite-prepared-payout-store.ts",
+      "import": "./src/sqlite-prepared-payout-store.ts"
+    },
+    "./prepared-payout-cipher": {
+      "types": "./src/prepared-payout-cipher.ts",
+      "import": "./src/prepared-payout-cipher.ts"
+    },
+    "./prepared-payouts": {
+      "types": "./src/prepared-payouts.ts",
+      "import": "./src/prepared-payouts.ts"
+    },
+    "./privacy-sdk-artifact": {
+      "types": "./src/privacy-sdk-artifact.ts",
+      "import": "./src/privacy-sdk-artifact.ts"
+    },
+    "./privacy-sdk-artifact-ports": {
+      "types": "./src/privacy-sdk-artifact-ports.ts",
+      "import": "./src/privacy-sdk-artifact-ports.ts"
+    },
+    "./privacy-sdk-source-build": {
+      "types": "./src/privacy-sdk-source-build.ts",
+      "import": "./src/privacy-sdk-source-build.ts"
+    },
+    "./privacy-sdk-source-ports": {
+      "types": "./src/privacy-sdk-source-ports.ts",
+      "import": "./src/privacy-sdk-source-ports.ts"
+    },
+    "./privacy-service-images": {
+      "types": "./src/privacy-service-images.ts",
+      "import": "./src/privacy-service-images.ts"
+    },
+    "./integration-sepolia-observer": {
+      "types": "./src/integration-sepolia-observer.ts",
+      "import": "./src/integration-sepolia-observer.ts"
+    },
+    "./payout-finality": {
+      "types": "./src/payout-finality.ts",
+      "import": "./src/payout-finality.ts"
+    },
+    "./payout-finality-jobs": {
+      "types": "./src/payout-finality-jobs.ts",
+      "import": "./src/payout-finality-jobs.ts"
+    },
+    "./payout-finality-scheduler": {
+      "types": "./src/payout-finality-scheduler.ts",
+      "import": "./src/payout-finality-scheduler.ts"
+    },
+    "./payout-finality-runtime": {
+      "types": "./src/payout-finality-runtime.ts",
+      "import": "./src/payout-finality-runtime.ts"
+    },
+    "./payout-finality-runtime-health": {
+      "types": "./src/payout-finality-runtime-health.ts",
+      "import": "./src/payout-finality-runtime-health.ts"
+    },
+    "./payout-finality-supervisor": {
+      "types": "./src/payout-finality-supervisor.ts",
+      "import": "./src/payout-finality-supervisor.ts"
+    },
+    "./settlement-pauses": {
+      "types": "./src/settlement-pauses.ts",
+      "import": "./src/settlement-pauses.ts"
+    },
+    "./settlement-admission": {
+      "types": "./src/settlement-admission.ts",
+      "import": "./src/settlement-admission.ts"
+    },
+    "./settlement-activity-gate": {
+      "types": "./src/settlement-activity-gate.ts",
+      "import": "./src/settlement-activity-gate.ts"
+    },
+    "./starknet-payout-status-source": {
+      "types": "./src/starknet-payout-status-source.ts",
+      "import": "./src/starknet-payout-status-source.ts"
+    },
+    "./starknet-deployment-verifier": {
+      "types": "./src/starknet-deployment-verifier.ts",
+      "import": "./src/starknet-deployment-verifier.ts"
+    },
+    "./starknet-deployment-origin-verifier": {
+      "types": "./src/starknet-deployment-origin-verifier.ts",
+      "import": "./src/starknet-deployment-origin-verifier.ts"
+    },
+    "./starknet-contract-upgrade-verifier": {
+      "types": "./src/starknet-contract-upgrade-verifier.ts",
+      "import": "./src/starknet-contract-upgrade-verifier.ts"
+    },
+    "./testnet-deployment-manifest": {
+      "types": "./src/testnet-deployment-manifest.ts",
+      "import": "./src/testnet-deployment-manifest.ts"
+    },
+    "./testnet-pool-deployment-plan": {
+      "types": "./src/testnet-pool-deployment-plan.ts",
+      "import": "./src/testnet-pool-deployment-plan.ts"
+    },
+    "./starknet-discovery-head-verifier": {
+      "types": "./src/starknet-discovery-head-verifier.ts",
+      "import": "./src/starknet-discovery-head-verifier.ts"
+    },
+    "./starknet-proving-block-selector": {
+      "types": "./src/starknet-proving-block-selector.ts",
+      "import": "./src/starknet-proving-block-selector.ts"
+    },
+    "./starknet-privacy-sdk-payout": {
+      "types": "./src/starknet-privacy-sdk-payout.ts",
+      "import": "./src/starknet-privacy-sdk-payout.ts"
+    },
+    "./starknet-payer-binding-verifier": {
+      "types": "./src/starknet-payer-binding-verifier.ts",
+      "import": "./src/starknet-payer-binding-verifier.ts"
+    },
+    "./starknet-privacy-sdk-note-source": {
+      "types": "./src/starknet-privacy-sdk-note-source.ts",
+      "import": "./src/starknet-privacy-sdk-note-source.ts"
+    },
+    "./starknet-privacy-sdk-note-reference": {
+      "types": "./src/starknet-privacy-sdk-note-reference.ts",
+      "import": "./src/starknet-privacy-sdk-note-reference.ts"
+    },
+    "./starknet-privacy-sdk-ports": {
+      "types": "./src/starknet-privacy-sdk-ports.ts",
+      "import": "./src/starknet-privacy-sdk-ports.ts"
+    },
+    "./starknet-transaction-observer": {
+      "types": "./src/starknet-transaction-observer.ts",
+      "import": "./src/starknet-transaction-observer.ts"
+    },
+    "./testnet-evidence": {
+      "types": "./src/testnet-evidence.ts",
+      "import": "./src/testnet-evidence.ts"
+    },
+    "./testnet-scenario-runner": {
+      "types": "./src/testnet-scenario-runner.ts",
+      "import": "./src/testnet-scenario-runner.ts"
+    },
+    "./testnet-service-verifier": {
+      "types": "./src/testnet-service-verifier.ts",
+      "import": "./src/testnet-service-verifier.ts"
     }
   },
   "scripts": {
@@ -17,7 +161,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@cashu-strk20/strk20-method": "workspace:*"
+    "@cashu-strk20/strk20-method": "workspace:*",
+    "starknet": "10.5.0"
   },
   "devDependencies": {
     "typescript": "5.9.3",

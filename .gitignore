@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+!.env.deployment.example
+!.env.pool-deployment.example
 *.pem
 *.key
 

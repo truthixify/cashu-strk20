@@ -2,8 +2,9 @@ import type { MeltPaymentEnvelope, PaymentObservation } from "@cashu-strk20/strk
 import { describe, expect, it } from "vitest";
 
 import type {
+  FundingDiscoveryInput,
+  FundingInstructionRequest,
   FundingInstructions,
-  FundingRequestInput,
   PayoutAttempt,
   PayoutAttemptStatus,
   PayoutPreparationInput,
@@ -12,6 +13,7 @@ import type {
 import {
   InMemorySettlementIntentStore,
   IntentConflictError,
+  IntentIntegrityError,
   intentIdentity,
   type SettlementIntentCandidate,
   type SettlementIntentRecord,
@@ -23,6 +25,18 @@ import {
   PayoutCoordinator,
   PayoutValidationError,
 } from "./payouts.js";
+import {
+  InProcessSettlementActivityGate,
+  SettlementSubmissionBlockedError,
+  type SettlementSubmissionGate,
+} from "./settlement-activity-gate.js";
+import {
+  type SettlementAdmissionChecker,
+  SettlementAdmissionController,
+  SettlementAdmissionUnavailableError,
+  SettlementProfilePausedError,
+} from "./settlement-admission.js";
+import { InMemorySettlementPauseStore, type SettlementPauseRecord } from "./settlement-pauses.js";
 
 const NOW_SECONDS = 2_000_000_000;
 
@@ -54,6 +68,175 @@ describe("payout coordination", () => {
     expect(events.indexOf("store:attach")).toBeLessThan(events.indexOf("gateway:submit"));
   });
 
+  it("blocks a new payout before creating an intent or preparing a transaction", async () => {
+    const store = new InMemorySettlementIntentStore();
+    const gateway = new FakeGateway();
+    const pauseStore = new InMemorySettlementPauseStore();
+    await pauseStore.pause(pauseRecord("0x123"));
+    const coordinator = createCoordinator(
+      store,
+      gateway,
+      "intent-1",
+      new SettlementAdmissionController(pauseStore),
+    );
+
+    await expect(coordinator.ensurePayout(input)).rejects.toBeInstanceOf(
+      SettlementProfilePausedError,
+    );
+    expect(await store.getByQuoteId(input.quoteId)).toBeNull();
+    expect(gateway.prepareCalls).toBe(0);
+    expect(gateway.submitCalls).toBe(0);
+  });
+
+  it("does not broadcast an already prepared payout while the profile is paused", async () => {
+    const store = new InMemorySettlementIntentStore();
+    const gateway = new FakeGateway();
+    const intent = await store.createOrGet({
+      intentId: "intent-before-pause",
+      identity: intentIdentity(input.quoteId, input.request),
+    });
+    const prepared = await gateway.preparePayout({
+      intentId: intent.intentId,
+      request: input.request,
+    });
+    await store.attachSubmission(intent.intentId, prepared.submissionId);
+    const pauseStore = new InMemorySettlementPauseStore();
+    await pauseStore.pause(pauseRecord("0x123"));
+    const coordinator = createCoordinator(
+      store,
+      gateway,
+      "unused",
+      new SettlementAdmissionController(pauseStore),
+    );
+
+    await expect(coordinator.ensurePayout(input)).rejects.toBeInstanceOf(
+      SettlementProfilePausedError,
+    );
+    expect(gateway.statusCalls).toBe(1);
+    expect(gateway.submitCalls).toBe(0);
+  });
+
+  it("does not broadcast when pause quiescence wins the final admission race", async () => {
+    const store = new InMemorySettlementIntentStore();
+    const gateway = new FakeGateway();
+    const pauseStore = new InMemorySettlementPauseStore();
+    const gate = new InProcessSettlementActivityGate();
+    const persistRelease = deferred<void>();
+    const quiescing = gate.quiesceForPause(
+      { method: "strk20", network: "SN_SEPOLIA", tokenContract: "0x123" },
+      async () => {
+        await persistRelease.promise;
+        return pauseStore.pause(pauseRecord("0x123"));
+      },
+    );
+    const coordinator = createCoordinator(
+      store,
+      gateway,
+      "intent-before-quiescence",
+      new SettlementAdmissionController(pauseStore),
+      gate,
+    );
+
+    await expect(coordinator.ensurePayout(input)).rejects.toBeInstanceOf(
+      SettlementSubmissionBlockedError,
+    );
+    expect(gateway.prepareCalls).toBe(1);
+    expect(gateway.statusCalls).toBe(1);
+    expect(gateway.submitCalls).toBe(0);
+    await expect(store.getByQuoteId(input.quoteId)).resolves.toMatchObject({
+      state: "INTENT_RECORDED",
+    });
+
+    persistRelease.resolve();
+    await expect(quiescing).resolves.toMatchObject({
+      profile: { tokenContract: "0x123" },
+    });
+  });
+
+  it("rejects a submission gate that skips or repeats the protected callback", async () => {
+    const skippedGateway = new FakeGateway();
+    const skippedGate = {
+      async runSubmission() {
+        return undefined;
+      },
+    } as unknown as SettlementSubmissionGate;
+    await expect(
+      createCoordinator(
+        new InMemorySettlementIntentStore(),
+        skippedGateway,
+        "intent-skipped-gate",
+        activeAdmission(),
+        skippedGate,
+      ).ensurePayout(input),
+    ).rejects.toBeInstanceOf(GatewayProtocolError);
+    expect(skippedGateway.submitCalls).toBe(0);
+
+    const repeatedGateway = new FakeGateway();
+    const repeatedGate: SettlementSubmissionGate = {
+      async runSubmission(_profile, submission) {
+        await submission();
+        return submission();
+      },
+    };
+    await expect(
+      createCoordinator(
+        new InMemorySettlementIntentStore(),
+        repeatedGateway,
+        "intent-repeated-gate",
+        activeAdmission(),
+        repeatedGate,
+      ).ensurePayout(input),
+    ).rejects.toBeInstanceOf(GatewayProtocolError);
+    expect(repeatedGateway.submitCalls).toBe(1);
+  });
+
+  it("continues reconciling a submitted payout while the profile is paused", async () => {
+    const store = new InMemorySettlementIntentStore();
+    const gateway = new FakeGateway();
+    const pauseStore = new InMemorySettlementPauseStore();
+    const coordinator = createCoordinator(
+      store,
+      gateway,
+      "intent-1",
+      new SettlementAdmissionController(pauseStore),
+    );
+    await coordinator.ensurePayout(input);
+    await pauseStore.pause(pauseRecord("0x123"));
+    gateway.setStatus("PAID", "0x789");
+
+    const result = await coordinator.ensurePayout(input);
+
+    expect(result).toMatchObject({ state: "PAID", transactionReferences: ["0x789"] });
+    expect(gateway.submitCalls).toBe(1);
+    expect(gateway.statusCalls).toBe(2);
+  });
+
+  it("fails closed when admission state is unavailable before broadcast", async () => {
+    const store = new InMemorySettlementIntentStore();
+    const gateway = new FakeGateway();
+    const intent = await store.createOrGet({
+      intentId: "intent-admission-unavailable",
+      identity: intentIdentity(input.quoteId, input.request),
+    });
+    const prepared = await gateway.preparePayout({
+      intentId: intent.intentId,
+      request: input.request,
+    });
+    await store.attachSubmission(intent.intentId, prepared.submissionId);
+    const admission: SettlementAdmissionChecker = {
+      async assertActive() {
+        throw new SettlementAdmissionUnavailableError();
+      },
+    };
+    const coordinator = createCoordinator(store, gateway, "unused", admission);
+
+    await expect(coordinator.ensurePayout(input)).rejects.toBeInstanceOf(
+      SettlementAdmissionUnavailableError,
+    );
+    expect(gateway.statusCalls).toBe(1);
+    expect(gateway.submitCalls).toBe(0);
+  });
+
   it("reconciles an idempotent retry without preparing or submitting again", async () => {
     const store = new InMemorySettlementIntentStore();
     const gateway = new FakeGateway();
@@ -65,6 +248,26 @@ describe("payout coordination", () => {
     expect(second).toEqual(first);
     expect(gateway.prepareCalls).toBe(1);
     expect(gateway.submitCalls).toBe(1);
+  });
+
+  it("allows one payout intent to own each prepared submission ID", async () => {
+    const store = new InMemorySettlementIntentStore();
+    const first = await store.createOrGet({
+      intentId: "intent-first",
+      identity: intentIdentity("quote-first", request),
+    });
+    const second = await store.createOrGet({
+      intentId: "intent-second",
+      identity: intentIdentity("quote-second", request),
+    });
+    await store.attachSubmission(first.intentId, "submission-shared");
+
+    await expect(
+      store.attachSubmission(second.intentId, "submission-shared"),
+    ).rejects.toBeInstanceOf(IntentIntegrityError);
+    expect(await store.attachSubmission(first.intentId, "submission-retry")).toMatchObject({
+      submissionId: "submission-shared",
+    });
   });
 
   it.each([
@@ -130,6 +333,8 @@ describe("payout coordination", () => {
       tokenContract: "0x123",
       minimumAmount: 1n,
       maximumAmount: 10_000n,
+      admission: activeAdmission(),
+      submissionGate: new InProcessSettlementActivityGate(),
       now: () => new Date((request.expires_at + 1) * 1_000),
       createIntentId: () => input.quoteId,
     });
@@ -227,6 +432,8 @@ describe("payout coordination", () => {
           tokenContract: "0x123",
           minimumAmount: 1n,
           maximumAmount: 10_000n,
+          admission: activeAdmission(),
+          submissionGate: new InProcessSettlementActivityGate(),
         }),
     ).toThrowError(PayoutConfigurationError);
     expect(
@@ -236,6 +443,30 @@ describe("payout coordination", () => {
           tokenContract: "0x123",
           minimumAmount: 10_000n,
           maximumAmount: 1n,
+          admission: activeAdmission(),
+          submissionGate: new InProcessSettlementActivityGate(),
+        }),
+    ).toThrowError(PayoutConfigurationError);
+    expect(
+      () =>
+        new PayoutCoordinator(store, gateway, {
+          network: "SN_SEPOLIA",
+          tokenContract: "0x123",
+          minimumAmount: 1n,
+          maximumAmount: 10_000n,
+          admission: {} as SettlementAdmissionChecker,
+          submissionGate: new InProcessSettlementActivityGate(),
+        }),
+    ).toThrowError(PayoutConfigurationError);
+    expect(
+      () =>
+        new PayoutCoordinator(store, gateway, {
+          network: "SN_SEPOLIA",
+          tokenContract: "0x123",
+          minimumAmount: 1n,
+          maximumAmount: 10_000n,
+          admission: activeAdmission(),
+          submissionGate: {} as SettlementSubmissionGate,
         }),
     ).toThrowError(PayoutConfigurationError);
   });
@@ -314,18 +545,59 @@ function createCoordinator(
   store: SettlementIntentStore,
   gateway: PrivateSettlementGateway,
   intentId = "intent-1",
+  admission: SettlementAdmissionChecker = activeAdmission(),
+  submissionGate: SettlementSubmissionGate = new InProcessSettlementActivityGate(),
 ): PayoutCoordinator {
   return new PayoutCoordinator(store, gateway, {
     network: "SN_SEPOLIA",
     tokenContract: "0x123",
     minimumAmount: 1n,
     maximumAmount: 10_000n,
+    admission,
+    submissionGate,
     now: () => new Date(NOW_SECONDS * 1_000),
     createIntentId: () => intentId,
   });
 }
 
+function activeAdmission(): SettlementAdmissionController {
+  return new SettlementAdmissionController(new InMemorySettlementPauseStore());
+}
+
+function pauseRecord(tokenContract: string): SettlementPauseRecord {
+  return {
+    profile: { method: "strk20", network: "SN_SEPOLIA", tokenContract },
+    reason: "PAYOUT_FINALITY_REORGED",
+    intentId: "incident-intent",
+    submissionId: "incident-submission",
+    transactionReference: "0xabc",
+    originalInclusion: { blockHash: "0xdef", blockNumber: 42n },
+    detectedAt: "2026-09-01T10:00:00.000Z",
+    observerVersion: "observer-v1",
+  };
+}
+
+function deferred<Value>(): {
+  readonly promise: Promise<Value>;
+  readonly resolve: (value: Value) => void;
+} {
+  let resolveValue: ((value: Value) => void) | undefined;
+  const promise = new Promise<Value>((resolve) => {
+    resolveValue = resolve;
+  });
+  return {
+    promise,
+    resolve: (value) => {
+      if (resolveValue === undefined) {
+        throw new Error("Test fixture is incomplete");
+      }
+      resolveValue(value);
+    },
+  };
+}
+
 class FakeGateway implements PrivateSettlementGateway {
+  readonly supportedAttributionProfiles = Object.freeze(["quote_channel"] as const);
   readonly events: string[];
   prepareCalls = 0;
   submitCalls = 0;
@@ -343,12 +615,12 @@ class FakeGateway implements PrivateSettlementGateway {
     this.events = events;
   }
 
-  async createFundingInstructions(_input: FundingRequestInput): Promise<FundingInstructions> {
+  async createFundingInstructions(_input: FundingInstructionRequest): Promise<FundingInstructions> {
     throw new Error("Not implemented by payout fake");
   }
 
-  async findFundingPayment(_paymentRequestId: string): Promise<PaymentObservation | null> {
-    return null;
+  async findFundingPayments(_input: FundingDiscoveryInput): Promise<readonly PaymentObservation[]> {
+    return [];
   }
 
   async preparePayout(input: PayoutPreparationInput): Promise<PayoutAttempt> {

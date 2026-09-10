@@ -1,0 +1,104 @@
+{
+  "name": "cashu-strk20-signed-payer-snip12",
+  "version": 2,
+  "status": "candidate",
+  "hashImplementation": "starknet@10.5.0",
+  "accountAddress": "0xaaa",
+  "inputs": {
+    "paymentRequestId": "payer_binding_request_000000000001",
+    "network": "SN_SEPOLIA",
+    "poolContract": "0x123",
+    "recipientAddress": "0x789",
+    "tokenContract": "0x456",
+    "expectedNoteReference": "0x111",
+    "amountBaseUnits": "1000000",
+    "payerAddress": "0xaaa",
+    "fundingExpiresAt": 2000000300,
+    "challengeExpiresAt": 2000000120,
+    "challengeId": "challenge_0000000000000000000000000001"
+  },
+  "typedData": {
+    "types": {
+      "StarknetDomain": [
+        {
+          "name": "name",
+          "type": "shortstring"
+        },
+        {
+          "name": "version",
+          "type": "shortstring"
+        },
+        {
+          "name": "chainId",
+          "type": "shortstring"
+        },
+        {
+          "name": "revision",
+          "type": "shortstring"
+        }
+      ],
+      "CairoCash Funding Authorization": [
+        {
+          "name": "Payment Request",
+          "type": "string"
+        },
+        {
+          "name": "Payer",
+          "type": "ContractAddress"
+        },
+        {
+          "name": "Pool",
+          "type": "ContractAddress"
+        },
+        {
+          "name": "Recipient",
+          "type": "ContractAddress"
+        },
+        {
+          "name": "Token",
+          "type": "ContractAddress"
+        },
+        {
+          "name": "Expected Note",
+          "type": "felt"
+        },
+        {
+          "name": "Amount",
+          "type": "u128"
+        },
+        {
+          "name": "Funding Expires At",
+          "type": "timestamp"
+        },
+        {
+          "name": "Challenge Expires At",
+          "type": "timestamp"
+        },
+        {
+          "name": "Challenge",
+          "type": "string"
+        }
+      ]
+    },
+    "primaryType": "CairoCash Funding Authorization",
+    "domain": {
+      "name": "CairoCash Funding",
+      "version": "2",
+      "chainId": "SN_SEPOLIA",
+      "revision": 1
+    },
+    "message": {
+      "Payment Request": "payer_binding_request_000000000001",
+      "Payer": "0xaaa",
+      "Pool": "0x123",
+      "Recipient": "0x789",
+      "Token": "0x456",
+      "Expected Note": "0x111",
+      "Amount": "1000000",
+      "Funding Expires At": "2000000300",
+      "Challenge Expires At": "2000000120",
+      "Challenge": "challenge_0000000000000000000000000001"
+    }
+  },
+  "expectedMessageHash": "0x555fc57c20c260d2248f47b917fa335d89f110e52d456116ea80608b01fb16e"
+}
