@@ -162,7 +162,7 @@
   },
   "dependencies": {
     "@cashu-strk20/strk20-method": "workspace:*",
-    "starknet": "10.5.0"
+    "starknet": "10.8.0"
   },
   "devDependencies": {
     "typescript": "5.9.3",
